@@ -1,0 +1,294 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using Npgsql;
+
+namespace Hemeroteca
+{
+    public partial class Prestamos : Form
+    {
+        string connectionString = "Host=postgres.render.com;Port=5432;Username=admin;Password=u7mIRtzwKVjfOwm8ClSbxO6VD6UDTTNd;Database=hemeroteca;SSL Mode=Require;Trust Server Certificate=true;";
+
+        public Prestamos()
+        {
+            InitializeComponent();
+            VisualizarB_Click(null, null);
+        }
+
+        private void Prestamos_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void dataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+
+        }
+
+        private void CrearB_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(connectionString))
+                {
+                    string query = "INSERT INTO Prestamos (ejemplar_id, usuario_id, login_id, fecha_prestamo, fecha_devolucion) VALUES (@ejemplarid, @usuarioid, @loginid, @fechaprestamo, @fechadevolucion)";
+                    using (var cmd = new NpgsqlCommand(query, conn))
+                    {
+                       
+                        int ejemplarId = 0;
+                        if (int.TryParse(Ejemplartxt.Text, out ejemplarId))
+                        {
+                            cmd.Parameters.AddWithValue("@ejemplarid", ejemplarId);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Ejemplar ID debe ser un número.");
+                            return;
+                        }
+
+                        // Convertir usuario_id a int, si es necesario
+                        int usuarioId = 0;
+                        if (int.TryParse(Usuariotxt.Text, out usuarioId))
+                        {
+                            cmd.Parameters.AddWithValue("@usuarioid", usuarioId);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Usuario ID debe ser un número.");
+                            return;
+                        }
+
+                        // Convertir login_id a int, si es necesario
+                        int loginId = 0;
+                        if (int.TryParse(Logintxt.Text, out loginId))
+                        {
+                            cmd.Parameters.AddWithValue("@loginid", loginId);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Login ID debe ser un número.");
+                            return;
+                        }
+
+                        cmd.Parameters.AddWithValue("@fechaprestamo", FechaPrestamotxt.Value); // Asumiendo que es un DateTimePicker
+                        cmd.Parameters.AddWithValue("@fechadevolucion", FechaDevoluciontxt.Value); // Asumiendo que es un DateTimePicker
+
+                        conn.Open();
+                        cmd.ExecuteNonQuery();
+                        MessageBox.Show("Préstamo registrado correctamente.");
+                        VisualizarB_Click(null, null);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al registrar el préstamo: {ex.Message}");
+            }
+        
+        }
+
+        private void VisualizarB_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(connectionString))
+                {
+                    conn.Open();
+
+                    string queryActivos = "SELECT * FROM Prestamos ORDER BY fecha_prestamo DESC";
+                    NpgsqlDataAdapter adapter1 = new NpgsqlDataAdapter(queryActivos, conn);
+                    DataTable dtActivos = new DataTable();
+                    adapter1.Fill(dtActivos);
+                    dataGridView1.DataSource = dtActivos;
+
+                    string queryDisponibles = "SELECT * FROM Ejemplares WHERE estatus = 'Disponible'";
+                    NpgsqlDataAdapter adapter2 = new NpgsqlDataAdapter(queryDisponibles, conn);
+                    DataTable dtDisponibles = new DataTable();
+                    adapter2.Fill(dtDisponibles);
+                    dataGridView2.DataSource = dtDisponibles;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al visualizar datos: {ex.Message}");
+            }
+
+        }
+
+        private void BuscarB_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(connectionString))
+                {
+                    string query = "SELECT * FROM Prestamos WHERE 1=1";
+
+                    if (!string.IsNullOrWhiteSpace(Ejemplartxt.Text))
+                        query += $" AND ejemplar_id = '{Ejemplartxt.Text}'";
+                    if (!string.IsNullOrWhiteSpace(Usuariotxt.Text))
+                        query += $" AND usuario_id = '{Usuariotxt.Text}'";
+                    if (!string.IsNullOrWhiteSpace(Logintxt.Text))
+                        query += $" AND login_id = '{Logintxt.Text}'";
+
+                    using (var adapter = new NpgsqlDataAdapter(query, conn))
+                    {
+                        DataTable dt = new DataTable();
+                        adapter.Fill(dt);
+                        dataGridView1.DataSource = dt;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al buscar préstamos: {ex.Message}");
+            }
+        }
+
+        private void EditarB_Click(object sender, EventArgs e)
+        {
+            if (dataGridView1.SelectedRows.Count > 0)
+            {
+                try
+                {
+                    using (var conn = new NpgsqlConnection(connectionString))
+                    {
+                        DataGridViewRow row = dataGridView1.SelectedRows[0];
+                        int id = Convert.ToInt32(row.Cells["id"].Value);
+
+                        string query = "UPDATE Prestamos SET ejemplar_id = @ejemplar_id, usuario_id = @usuario_id, login_id = @login_id, fecha_prestamo = @fecha_prestamo, fecha_devolucion = @fecha_devolucion WHERE id = @id";
+                        using (var cmd = new NpgsqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@id", id);
+
+                            // Convertir ejemplar_id, usuario_id y login_id a enteros si es necesario
+                            int ejemplarId = 0;
+                            if (int.TryParse(Ejemplartxt.Text, out ejemplarId))
+                            {
+                                cmd.Parameters.AddWithValue("@ejemplar_id", ejemplarId);
+                            }
+                            else
+                            {
+                                MessageBox.Show("Ejemplar ID debe ser un número.");
+                                return;
+                            }
+
+                            int usuarioId = 0;
+                            if (int.TryParse(Usuariotxt.Text, out usuarioId))
+                            {
+                                cmd.Parameters.AddWithValue("@usuario_id", usuarioId);
+                            }
+                            else
+                            {
+                                MessageBox.Show("Usuario ID debe ser un número.");
+                                return;
+                            }
+
+                            int loginId = 0;
+                            if (int.TryParse(Logintxt.Text, out loginId))
+                            {
+                                cmd.Parameters.AddWithValue("@login_id", loginId);
+                            }
+                            else
+                            {
+                                MessageBox.Show("Login ID debe ser un número.");
+                                return;
+                            }
+
+                            cmd.Parameters.AddWithValue("@fecha_prestamo", FechaPrestamotxt.Value);
+                            cmd.Parameters.AddWithValue("@fecha_devolucion", FechaDevoluciontxt.Value);
+
+                            conn.Open();
+                            cmd.ExecuteNonQuery();
+                            MessageBox.Show("Préstamo actualizado correctamente.");
+                            VisualizarB_Click(null, null);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error al editar el préstamo: {ex.Message}");
+                }
+            }
+            else
+            {
+                MessageBox.Show("Seleccione un préstamo para editar.");
+            }
+
+        }
+
+        private void EliminarB_Click(object sender, EventArgs e)
+        {
+            if (dataGridView1.SelectedRows.Count > 0)
+            {
+                try
+                {
+                    using (var conn = new NpgsqlConnection(connectionString))
+                    {
+                        DataGridViewRow row = dataGridView1.SelectedRows[0];
+                        int id = Convert.ToInt32(row.Cells["id"].Value);
+
+                        string query = "DELETE FROM Prestamos WHERE id = @id";
+                        using (var cmd = new NpgsqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@id", id);
+
+                            conn.Open();
+                            cmd.ExecuteNonQuery();
+                            MessageBox.Show("Préstamo eliminado correctamente.");
+                            VisualizarB_Click(null, null);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error al eliminar el préstamo: {ex.Message}");
+                }
+            }
+            else
+            {
+                MessageBox.Show("Seleccione un préstamo para eliminar.");
+            }
+        }
+
+        private void inicioToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Form UsuariosF = new Form1();
+            UsuariosF.Show();
+            this.Hide();
+        }
+
+        private void publicacionesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Form UsuariosF = new Publicaciones();
+            UsuariosF.Show();
+            this.Hide();
+        }
+
+        private void usuariosToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Form UsuariosF = new Usuarios();
+            UsuariosF.Show();
+            this.Hide();
+        }
+
+        private void solicitudesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Form UsuariosF = new Prestamos();
+            UsuariosF.Show();
+            this.Hide();
+        }
+
+        private void devolucionesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Form UsuariosF = new Devoluciones();
+            UsuariosF.Show();
+            this.Hide();
+        }
+    }
+}
