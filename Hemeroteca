@@ -1,0 +1,170 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Data.SqlClient;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using Npgsql;
+
+
+namespace Hemeroteca
+{
+    public partial class Usuarios : Form
+
+    {
+
+        string connectionString = "Host=postgres.render.com;Port=5432;Username=admin;Password=u7mIRtzwKVjfOwm8ClSbxO6VD6UDTTNd;Database=hemeroteca;SSL Mode=Require;Trust Server Certificate=true;";
+
+
+        public Usuarios()
+        {
+            InitializeComponent();
+            CargarDatos();
+        }
+
+        private void CargarDatos()
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(connectionString))
+                {
+                    string query = "SELECT id, nombre, correo, telefono, direccion FROM Usuarios";
+                    conn.Open();
+
+                    NpgsqlDataAdapter adapter = new NpgsqlDataAdapter(query, conn);
+                    DataTable dt = new DataTable();
+                    adapter.Fill(dt);
+
+                    DataGridView.DataSource = dt;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al cargar datos: {ex.Message}");
+            }
+        }
+
+        private void RegistrarB_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(Nombretxt.Text) || string.IsNullOrWhiteSpace(Correotxt.Text))
+            {
+                MessageBox.Show("Por favor, complete los campos obligatorios: Nombre y Correo.");
+                return;
+            }
+
+            try
+            {
+                using (var conn = new NpgsqlConnection(connectionString))
+                {
+                    string query = "INSERT INTO Usuarios (nombre, correo, telefono, direccion) VALUES (@nombre, @correo, @telefono, @direccion)";
+                    conn.Open();
+
+                    using (var cmd = new NpgsqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@nombre", Nombretxt.Text);
+                        cmd.Parameters.AddWithValue("@correo", Correotxt.Text);
+                        cmd.Parameters.AddWithValue("@telefono", Telefonotxt.Text);
+                        cmd.Parameters.AddWithValue("@direccion", Direcciontxt.Text);
+
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    MessageBox.Show("Usuario registrado correctamente.");
+                    CargarDatos();
+                    LimpiarCampos();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al registrar usuario: {ex.Message}");
+            }
+        }
+
+        private void EditarB_Click(object sender, EventArgs e)
+        {
+            if (DataGridView.SelectedRows.Count > 0)
+            {
+                DataGridViewRow row = DataGridView.SelectedRows[0];
+                int id = Convert.ToInt32(row.Cells["id"].Value);
+
+                try
+                {
+                    using (var conn = new NpgsqlConnection(connectionString))
+                    {
+                        string query = "UPDATE Usuarios SET nombre = @nombre, correo = @correo, telefono = @telefono, direccion = @direccion WHERE id = @id";
+                        conn.Open();
+
+                        using (var cmd = new NpgsqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@id", id);
+                            cmd.Parameters.AddWithValue("@nombre", Nombretxt.Text);
+                            cmd.Parameters.AddWithValue("@correo", Correotxt.Text);
+                            cmd.Parameters.AddWithValue("@telefono", Telefonotxt.Text);
+                            cmd.Parameters.AddWithValue("@direccion", Direcciontxt.Text);
+
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        MessageBox.Show("Usuario actualizado correctamente.");
+                        CargarDatos();
+                        LimpiarCampos();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error al editar usuario: {ex.Message}");
+                }
+            }
+            else
+            {
+                MessageBox.Show("Seleccione un usuario para editar.");
+            }
+        }
+
+        private void EliminarB_Click(object sender, EventArgs e)
+        {
+            if (DataGridView.SelectedRows.Count > 0)
+            {
+                DataGridViewRow row = DataGridView.SelectedRows[0];
+                int id = Convert.ToInt32(row.Cells["id"].Value);
+
+                try
+                {
+                    using (var conn = new NpgsqlConnection(connectionString))
+                    {
+                        string query = "DELETE FROM Usuarios WHERE id = @id";
+                        conn.Open();
+
+                        using (var cmd = new NpgsqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@id", id);
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        MessageBox.Show("Usuario eliminado correctamente.");
+                        CargarDatos();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error al eliminar usuario: {ex.Message}");
+                }
+            }
+            else
+            {
+                MessageBox.Show("Seleccione un usuario para eliminar.");
+            }
+        }
+        private void LimpiarCampos()
+        {
+            Nombretxt.Clear();
+            Correotxt.Clear();
+            Telefonotxt.Clear();
+            Direcciontxt.Clear();
+        }
+    }
+}
